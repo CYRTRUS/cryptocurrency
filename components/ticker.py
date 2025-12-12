@@ -8,7 +8,7 @@ import threading
 class CryptoTicker:
     """Reusable ticker component for any cryptocurrency."""
 
-    def __init__(self, parent, symbol, display_name):
+    def __init__(self, parent, symbol, display_name, initial_data=None):
         self.parent = parent
         self.symbol = symbol.lower()
         self.display_name = display_name
@@ -32,6 +32,14 @@ class CryptoTicker:
         self.change_label = ttk.Label(self.frame, text="--",
                                       font=("Arial", 12))
         self.change_label.pack()
+
+        # Set initial data if provided
+        if initial_data:
+            self.update_display(
+                initial_data['price'],
+                initial_data['change'],
+                initial_data['percent']
+            )
 
     def start(self):
         """Start WebSocket connection."""
@@ -73,7 +81,7 @@ class CryptoTicker:
 
     def update_display(self, price, change, percent):
         """Update the ticker display."""
-        if not self.is_active:
+        if not hasattr(self, 'price_label'):  # Safety check
             return
 
         color = "green" if change >= 0 else "red"
