@@ -12,8 +12,9 @@ class CryptoTicker:
         self.parent = parent
         self.symbol = symbol.lower()
         self.display_name = display_name
-        self.is_active = False
         self.ws = None
+        self.is_connected = False
+        self.should_be_visible = True  # Track if UI should be shown
 
         # Create UI
         self.frame = ttk.Frame(parent, relief="solid",
@@ -41,34 +42,43 @@ class CryptoTicker:
                 initial_data['percent']
             )
 
-    def start(self):
-        """Start WebSocket connection."""
-        if self.is_active:
+    def connect(self):
+        """Start WebSocket connection (call once at startup)."""
+        if self.ws:
             return
 
-        self.is_active = True
         ws_url = f"wss://stream.binance.com:9443/ws/{self.symbol}@ticker"
 
         self.ws = websocket.WebSocketApp(
             ws_url,
             on_message=self.on_message,
-            on_error=lambda ws, err: print(f"{self.symbol} error: {err}"),
-            on_close=lambda ws, s, m: print(f"{self.symbol} closed"),
-            on_open=lambda ws: print(f"{self.symbol} connected")
+            on_error=self.on_error,
+            on_close=self.on_close,
+            on_open=self.on_open
         )
 
         threading.Thread(target=self.ws.run_forever, daemon=True).start()
 
-    def stop(self):
+    def disconnect(self):
         """Stop WebSocket connection."""
-        self.is_active = False
-        if self.ws:
-            self.ws.close()
-            self.ws = None
+        if self.ws and self.is_connected:
+            try:
+                self.is_connected = False
+                self.ws.close()
+                print(f"{self.symbol} disconnected")
+            except Exception as e:
+                print(f"Error disconnecting {self.symbol}: {e}")
+            finally:
+                self.ws = None
+
+    def on_open(self, ws):
+        """Called when WebSocket connects."""
+        self.is_connected = True
+        print(f"{self.symbol} connected")
 
     def on_message(self, ws, message):
         """Handle price updates."""
-        if not self.is_active:
+        if not self.ws or not self.is_connected:
             return
 
         data = json.loads(message)
@@ -76,8 +86,15 @@ class CryptoTicker:
         change = float(data['p'])
         percent = float(data['P'])
 
-        # Schedule GUI update on main thread
-        self.parent.after(0, self.update_display, price, change, percent)
+        # Only update GUI if ticker should be visible
+        if self.should_be_visible:
+            self.parent.after(0, self.update_display, price, change, percent)
+
+    def on_error(self, ws, error):
+        print(f"{self.symbol} error: {error}")
+
+    def on_close(self, ws, status, msg):
+        self.is_connected = False
 
     def update_display(self, price, change, percent):
         """Update the ticker display."""
@@ -93,6 +110,17 @@ class CryptoTicker:
             foreground=color
         )
 
+    def show(self):
+        """Show the ticker UI."""
+        self.should_be_visible = True
+        self.frame.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
+
+    def hide(self):
+        """Hide the ticker UI."""
+        self.should_be_visible = False
+        self.frame.pack_forget()
+
+    # Keep for compatibility
     def pack(self, **kwargs):
         """Allow easy placement of ticker."""
         self.frame.pack(**kwargs)
@@ -100,99 +128,3 @@ class CryptoTicker:
     def pack_forget(self):
         """Hide the ticker."""
         self.frame.pack_forget()
-
-
-class BTCTicker:
-    """Legacy single BTC ticker class - kept for compatibility"""
-
-    def __init__(self, root):
-        self.root = root
-        self.root.title("BTC Price Ticker")
-        self.root.geometry("400x200")
-
-        self.is_closing = False
-        self.ws = None
-
-        # UI Setup
-        self.setup_ui()
-
-        # Start WebSocket
-        self.start_websocket()
-
-    def setup_ui(self):
-        # Title
-        title = ttk.Label(self.root, text="BTC/USDT",
-                          font=("Arial", 16, "bold"))
-        title.pack(pady=10)
-
-        # Price Display
-        self.price_label = tk.Label(self.root, text="--,---",
-                                    font=("Arial", 48, "bold"),
-                                    fg="black")
-        self.price_label.pack(pady=20)
-
-        # Change Display
-        self.change_label = ttk.Label(self.root, text="--",
-                                      font=("Arial", 14))
-        self.change_label.pack()
-
-    def start_websocket(self):
-        """Start WebSocket connection in background thread."""
-        ws_url = "wss://stream.binance.com:9443/ws/btcusdt@ticker"
-
-        self.ws = websocket.WebSocketApp(
-            ws_url,
-            on_message=self.on_message,
-            on_error=self.on_error,
-            on_close=self.on_close,
-            on_open=self.on_open
-        )
-
-        # Run in separate thread to not block GUI
-        ws_thread = threading.Thread(target=self.ws.run_forever, daemon=True)
-        ws_thread.start()
-
-    def on_open(self, ws):
-        print("WebSocket Connected")
-
-    def on_message(self, ws, message):
-        """Handle incoming WebSocket messages."""
-        if self.is_closing:
-            return
-
-        data = json.loads(message)
-        price = float(data['c'])  # Current price
-        change = float(data['p'])  # 24h price change
-        percent = float(data['P'])  # 24h percent change
-
-        # Update GUI (must use root.after for thread safety)
-        self.root.after(0, self.update_display, price, change, percent)
-
-    def update_display(self, price, change, percent):
-        """Update the display with new price data."""
-        if self.is_closing:
-            return
-
-        # Determine color based on change
-        color = "green" if change >= 0 else "red"
-
-        # Update price
-        self.price_label.config(text=f"{price:,.2f}", fg=color)
-
-        # Update change
-        sign = "+" if change >= 0 else ""
-        change_text = f"{sign}{change:,.2f} ({sign}{percent:.2f}%)"
-        self.change_label.config(text=change_text, foreground=color)
-
-    def on_error(self, ws, error):
-        print(f"WebSocket Error: {error}")
-
-    def on_close(self, ws, status, msg):
-        print("WebSocket Closed")
-
-    def on_closing(self):
-        """Clean up when closing."""
-        self.is_closing = True
-        if self.ws:
-            self.ws.close()
-        self.root.destroy()

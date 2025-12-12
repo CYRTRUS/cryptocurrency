@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 from .ticker import CryptoTicker
 import requests
-import threading
 
 
 def fetch_initial_data(symbol):
@@ -25,11 +24,59 @@ def fetch_initial_data(symbol):
         return None
 
 
-class ToggleableTickerApp:
-    def __init__(self, root):
+class BaseCryptoApp:
+    """Base class for crypto dashboard apps."""
+
+    def __init__(self, root, title="Crypto Dashboard"):
         self.root = root
-        self.root.title("Crypto Dashboard with Toggle")
-        self.root.geometry("1200x800")
+        self.root.title(title)
+        self.tickers = []
+
+    def create_ticker(self, parent, symbol, display_name, show_immediately=True):
+        """Create and connect a ticker with consistent initialization."""
+        initial_data = fetch_initial_data(symbol)
+        ticker = CryptoTicker(parent, symbol, display_name, initial_data)
+
+        if show_immediately:
+            ticker.show()
+        else:
+            ticker.hide()
+
+        ticker.connect()
+        self.tickers.append(ticker)
+        return ticker
+
+    def on_closing(self):
+        """Clean up all tickers when closing."""
+        for ticker in self.tickers:
+            ticker.disconnect()
+        self.root.destroy()
+
+
+class MultiTickerApp(BaseCryptoApp):
+    """Simple multi-ticker dashboard."""
+
+    def __init__(self, root):
+        super().__init__(root, "Crypto Dashboard")
+        self.root.geometry("800x300")
+
+        # Create ticker panel
+        ticker_frame = ttk.Frame(root, padding=20)
+        ticker_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create BTC and ETH tickers
+        self.btc_ticker = self.create_ticker(
+            ticker_frame, "btcusdt", "BTC/USDT")
+        self.eth_ticker = self.create_ticker(
+            ticker_frame, "ethusdt", "ETH/USDT")
+
+
+class ToggleableTickerApp(BaseCryptoApp):
+    """Dashboard with toggleable tickers."""
+
+    def __init__(self, root):
+        super().__init__(root, "Crypto Dashboard with Toggle")
+        self.root.geometry("1200x600")
 
         # Control panel
         control_frame = ttk.Frame(root, padding=10)
@@ -43,7 +90,7 @@ class ToggleableTickerApp:
             font=("Arial", 10),
             padx=15,
             pady=5,
-            bg="#A0A0A0",
+            bg="#A0A0A0",  # Gray when hidden
             fg="black",
             activebackground="#424242",
             activeforeground="black",
@@ -56,120 +103,36 @@ class ToggleableTickerApp:
         self.ticker_frame = ttk.Frame(root, padding=20)
         self.ticker_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Create BTC ticker with initial data
-        btc_data = fetch_initial_data("BTCUSDT")
-        self.btc_ticker = CryptoTicker(
-            self.ticker_frame, "btcusdt", "BTC/USDT", btc_data)
-        self.btc_ticker.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
+        # Create all tickers with consistent initialization
+        self.btc_ticker = self.create_ticker(
+            self.ticker_frame, "btcusdt", "BTC/USDT")
+        self.eth_ticker = self.create_ticker(
+            self.ticker_frame, "ethusdt", "ETH/USDT")
+        self.sol_ticker = self.create_ticker(
+            self.ticker_frame, "solusdt", "SOL/USDT", show_immediately=False)
 
-        # Create ETH ticker with initial data
-        eth_data = fetch_initial_data("ETHUSDT")
-        self.eth_ticker = CryptoTicker(
-            self.ticker_frame, "ethusdt", "ETH/USDT", eth_data)
-        self.eth_ticker.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
-
-        # Create SOL ticker WITHOUT initial data initially
-        self.sol_ticker = CryptoTicker(
-            self.ticker_frame, "solusdt", "SOL/USDT")
-        # Don't pack SOL initially (hidden)
-
-        # Pre-fetch SOL data in background
-        self.sol_initial_data = None
-
-        def pre_fetch_and_update():
-            """Pre-fetch SOL data and update the ticker if it exists."""
-            data = fetch_initial_data("SOLUSDT")
-            if data:
-                self.sol_initial_data = data
-
-                self.root.after(0, self.update_sol_display, data)
-            else:
-                print("✗ Failed to pre-fetch SOL data")
-
-        # Start pre-fetching in background thread
-        threading.Thread(target=pre_fetch_and_update, daemon=True).start()
-
-        # Start BTC and ETH
-        self.btc_ticker.start()
-        self.eth_ticker.start()
-
+        # Track visibility state
         self.sol_visible = False
 
-    def update_sol_display(self, data):
-        """Update SOL ticker with pre-fetched data."""
-        if hasattr(self, 'sol_ticker'):
-            self.sol_ticker.update_display(
-                data['price'],
-                data['change'],
-                data['percent']
-            )
-
     def toggle_sol(self):
-        """Show or hide SOL ticker."""
+        """Show or hide SOL ticker UI (without stopping WebSocket)."""
         if self.sol_visible:
-            # Hide SOL
-            self.sol_ticker.stop()
-            self.sol_ticker.pack_forget()
+            # Hide SOL UI only
+            self.sol_ticker.hide()
             self.sol_btn.config(
-                bg="#A0A0A0",
+                bg="#A0A0A0",  # Gray when hidden
                 fg="black",
                 activebackground="#424242",
                 activeforeground="black"
             )
             self.sol_visible = False
         else:
-            # Show SOL - Update with latest data if available
-            if self.sol_initial_data:
-                # Use the pre-fetched data
-                self.sol_ticker.update_display(
-                    self.sol_initial_data['price'],
-                    self.sol_initial_data['change'],
-                    self.sol_initial_data['percent']
-                )
-
-            self.sol_ticker.pack(side=tk.LEFT, padx=10,
-                                 fill=tk.BOTH, expand=True)
-            self.sol_ticker.start()
+            # Show SOL UI only (WebSocket is already connected)
+            self.sol_ticker.show()
             self.sol_btn.config(
-                bg="#FFFFFF",
+                bg="#FFFFFF",  # White when shown
                 fg="black",
                 activebackground="#F5F5F5",
                 activeforeground="black"
             )
             self.sol_visible = True
-
-    def on_closing(self):
-        """Clean up when closing."""
-        self.btc_ticker.stop()
-        self.eth_ticker.stop()
-        self.sol_ticker.stop()
-        self.root.destroy()
-
-
-class MultiTickerApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Crypto Dashboard")
-        self.root.geometry("800x300")
-
-        # Create ticker panel
-        ticker_frame = ttk.Frame(root, padding=20)
-        ticker_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Create BTC ticker
-        self.btc_ticker = CryptoTicker(ticker_frame, "btcusdt", "BTC/USDT")
-        self.btc_ticker.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
-
-        # Create ETH ticker
-        self.eth_ticker = CryptoTicker(ticker_frame, "ethusdt", "ETH/USDT")
-        self.eth_ticker.pack(side=tk.LEFT, padx=10, fill=tk.BOTH, expand=True)
-
-        # Start both tickers
-        self.btc_ticker.start()
-        self.eth_ticker.start()
-
-    def on_closing(self):
-        """Clean up when closing."""
-        self.btc_ticker.stop()
-        self.eth_ticker.stop()
-        self.root.destroy()
