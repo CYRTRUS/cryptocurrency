@@ -6,6 +6,7 @@ import numpy as np
 import requests
 from datetime import datetime
 import threading
+from matplotlib.ticker import FuncFormatter
 from .debug import log
 
 # ================= COLORS =================
@@ -16,9 +17,9 @@ RED = "#ff4444"
 GRAY = "#b5b5b5"
 
 PRICE_FONT_SIZE = 12  # Current price line font
-LABEL_FONT_SIZE = 9  # Axis, volume, time labels font
+LABEL_FONT_SIZE = 9   # Axis, volume, time labels font
 MIN_CANDLE_RATIO = 0.01
-UPDATE_INTERVAL = 3  # seconds
+UPDATE_INTERVAL = 3   # seconds
 
 
 class CryptoChart:
@@ -28,10 +29,7 @@ class CryptoChart:
         self.interval = interval
         self.limit = limit
         self.running = True
-        self.current_price = None
         self.prev_price = None
-        self.price_line = None
-        self.price_text = None
 
         log("CHART", f"Initializing chart for {self.symbol}")
 
@@ -53,19 +51,47 @@ class CryptoChart:
         self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.frame)
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Set axis formatters
+        self.ax.yaxis.set_major_formatter(FuncFormatter(self.price_formatter))
+        self.ax2.yaxis.set_major_formatter(FuncFormatter(self.volume_formatter))
+
         # Start update loop
         threading.Thread(target=self.update_loop, daemon=True).start()
 
+    # ---------------- Formatters ----------------
+    @staticmethod
+    def price_formatter(x, pos):
+        """Dynamic price formatting for y-axis."""
+        if x >= 10:
+            return f"{x:,.0f}"
+        elif x >= 1:
+            return f"{x:,.2f}"
+        else:
+            return f"{x:,.4f}"
+
+    @staticmethod
+    def volume_formatter(x, pos):
+        """Format volume labels dynamically."""
+        if x >= 1_000_000:
+            return f"{x/1_000_000:.0f}M"
+        elif x >= 1_000:
+            return f"{x/1_000:.0f}K"
+        elif x > 0:
+            return f"{x:.2f}"
+        else:
+            return "0"
+
+    # ---------------- Fetch klines ----------------
     def fetch_klines(self):
         try:
             url = "https://api.binance.com/api/v3/klines"
             params = {"symbol": self.symbol, "interval": self.interval, "limit": self.limit}
-            data = requests.get(url, params=params, timeout=5).json()
-            return data
+            return requests.get(url, params=params, timeout=5).json()
         except Exception as e:
             log("CHART", f"Error fetching klines: {e}")
             return []
 
+    # ---------------- Plotting ----------------
     def plot(self, klines):
         if not klines:
             return
@@ -94,20 +120,18 @@ class CryptoChart:
             self.ax.add_patch(rect)
 
         price = data[-1, 3]
-        self.current_price = price
 
         # Compute y-axis with buffer
         min_p, max_p = data[:, 2].min(), data[:, 1].max()
         buffer = (max_p - min_p) * 0.2 if max_p != min_p else max_p*0.02
-        ymin = min(min_p - buffer, price - buffer*1.5)
-        ymax = max(max_p + buffer, price + buffer*1.5)
-        self.ax.set_ylim(ymin, ymax)
+        self.ax.set_ylim(min(min_p - buffer, price - buffer*1.5),
+                         max(max_p + buffer, price + buffer*1.5))
 
-        # Current price line color logic (like ticker.py)
+        # Current price line
         line_color = GREEN if self.prev_price is None or price >= self.prev_price else RED
-        self.price_line = self.ax.axhline(price, color=line_color, linestyle="--", linewidth=1)
-        self.price_text = self.ax.text(
-            1.01, price, f"{price:,.2f}",
+        self.ax.axhline(price, color=line_color, linestyle="--", linewidth=1)
+        self.ax.text(
+            1.01, price, f"{price:,.4f}",
             transform=self.ax.get_yaxis_transform(),
             color=line_color,
             va="center", ha="left",
@@ -117,25 +141,27 @@ class CryptoChart:
 
         # Axis & grid
         self.ax.set_facecolor(DARK_BG)
-        self.ax.set_ylabel("Price", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE, "weight": "bold", "color": GRAY})
+        self.ax.set_ylabel("Price", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                                              "weight": "bold", "color": GRAY})
         self.ax.grid(True, color="gray", linestyle="--", linewidth=0.3)
         self.ax.tick_params(axis='y', colors=GRAY)
         self.ax.get_xaxis().set_visible(False)
-        self.ax.yaxis.set_major_formatter(lambda x, pos: f"{x:,.0f}")
 
         # Volume chart
-        self.ax2.bar(range(len(vol_data)), vol_data, color=[GREEN if c >= o else RED for o, h, l, c in data])
+        self.ax2.bar(range(len(vol_data)), vol_data,
+                     color=[GREEN if c >= o else RED for o, h, l, c in data])
         tick_spacing = max(1, len(ts)//6)
         tick_labels = [t.strftime("%H:%M") for t in ts]
         self.ax2.set_xticks(np.arange(0, len(tick_labels), tick_spacing))
         self.ax2.set_xticklabels(tick_labels[::tick_spacing], rotation=30, ha="right",
-                                 fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE, "weight": "bold", "color": GRAY})
+                                 fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                                           "weight": "bold", "color": GRAY})
         self.ax2.set_facecolor(DARK_BG)
-        self.ax2.set_ylabel("Volume", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE, "weight": "bold", "color": GRAY})
+        self.ax2.set_ylabel("Volume", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                                                "weight": "bold", "color": GRAY})
         self.ax2.tick_params(axis='y', colors=GRAY)
         self.ax2.tick_params(axis='x', colors=GRAY)
         self.ax2.grid(True, color="gray", linestyle="--", linewidth=0.3)
-        self.ax2.yaxis.set_major_formatter(lambda x, pos: f"{x:,.0f}")
 
         try:
             self.fig.tight_layout(pad=0.3)
@@ -145,8 +171,9 @@ class CryptoChart:
 
         self.canvas.draw()
         self.canvas2.draw()
-        self.prev_price = price  # update prev_price after plotting
+        self.prev_price = price
 
+    # ---------------- Update Loop ----------------
     def update_loop(self):
         while self.running:
             klines = self.fetch_klines()
@@ -154,6 +181,7 @@ class CryptoChart:
                 self.parent.after(0, lambda k=klines: self.plot(k))
             threading.Event().wait(UPDATE_INTERVAL)
 
+    # ---------------- Stop ----------------
     def stop(self):
         log("CHART", f"Stopping chart for {self.symbol}")
         self.running = False

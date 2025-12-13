@@ -30,11 +30,13 @@ class CryptoTicker:
             fg=WHITE
         ).pack(anchor="w")
 
+        # Placeholders
         self.price_label = tk.Label(
             self.frame,
             font=("Courier New", 16, "bold"),
             bg=DARK_BG,
-            fg=WHITE
+            fg=WHITE,
+            text="Current price : --"
         )
         self.price_label.pack(anchor="w", pady=4)
 
@@ -42,7 +44,8 @@ class CryptoTicker:
             self.frame,
             font=("Courier New", 11, "bold"),
             bg=DARK_BG,
-            fg=WHITE
+            fg=WHITE,
+            text="24h Change : --"
         )
         self.change_label.pack(anchor="w")
 
@@ -67,7 +70,7 @@ class CryptoTicker:
 
     def safe_update(self, price, change, sign, color):
         if self.running and getattr(self, "price_label", None) and self.price_label.winfo_exists():
-            self.price_label.config(text=f"Current price ${price:,.2f}", fg=color)
+            self.price_label.config(text=f"Current price : ${price:,.2f}", fg=color)
             self.change_label.config(text=f"24h Change : {sign}{change:.2f}%", fg=color)
 
     def stop(self):

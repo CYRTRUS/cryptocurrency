@@ -159,7 +159,7 @@ class CryptoDashboard:
         self.right_header.pack(fill=tk.X)
         tk.Label(
             self.right_header,
-            text="---- 1 Hour Candlestick Chart ----",
+            text="——— 1 Hour Candlestick Chart ———",
             font=("Courier New", 16, "bold"),
             bg=LIGHT_BG,
             fg=WHITE

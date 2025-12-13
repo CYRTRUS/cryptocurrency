@@ -1,3 +1,4 @@
+# orderbook.py
 import tkinter as tk
 import json
 import threading
@@ -42,6 +43,12 @@ class OrderBookPanel:
         self.asks_data = tk.Frame(self.asks_frame, bg=DARK_BG)
         self.bids_data.pack()
         self.asks_data.pack()
+
+        # Placeholder: 10 lines of "--"
+        for _ in range(10):
+            tk.Label(self.bids_data, text="--", fg=LIGHT_GREEN, bg=DARK_BG, font=FONT_SMALL).pack(anchor="w")
+        for _ in range(10):
+            tk.Label(self.asks_data, text="--", fg=LIGHT_RED, bg=DARK_BG, font=FONT_SMALL).pack(anchor="w")
 
         # Start WebSocket
         self.ws = websocket.WebSocketApp(

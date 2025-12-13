@@ -24,12 +24,14 @@ class VolumePanel:
 
         self.frame = tk.Frame(parent, bg=DARK_BG, padx=10, pady=10)
 
+        # Placeholder
         self.label = tk.Label(
             self.frame,
             font=FONT,
             bg=DARK_BG,
             fg=WHITE,
-            anchor="w"
+            anchor="w",
+            text="24h Volume : --"
         )
         self.label.pack(fill=tk.X)
 
