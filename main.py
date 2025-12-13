@@ -47,8 +47,8 @@ class CryptoDashboard:
 
         self.root = root
         self.root.title("Crypto Dashboard")
-        self.root.geometry("1400x700")
-        self.root.minsize(1400, 700)
+        self.root.geometry("1600x800")
+        self.root.minsize(1600, 800)
         self.root.configure(bg=DARK_BG)
 
         self.symbols = {
