@@ -20,6 +20,7 @@ GRAY = "#b5b5b5"
 PRICE_FONT_SIZE = 12
 LABEL_FONT_SIZE = 9
 MIN_CANDLE_RATIO = 0.01
+THRESHOLD = 0.25  # percent
 UPDATE_INTERVAL = 3  # seconds
 
 
@@ -50,8 +51,11 @@ class CryptoChart(BasePanel):
         self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.frame)
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Apply formatters
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.price_formatter))
-        self.ax2.yaxis.set_major_formatter(FuncFormatter(self.volume_formatter))
+        self.ax.yaxis.set_label_position("right")  # Move label to right
+        self.ax.yaxis.tick_right()  # Tick labels on right
+        self.ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, pos: self.volume_formatter(x, pos)))
 
         # Start update loop
         threading.Thread(target=self.update_loop, daemon=True).start()
@@ -106,14 +110,6 @@ class CryptoChart(BasePanel):
 
         width = 0.6
 
-        for i, (o, h, l, c) in enumerate(data):
-            color = GREEN if c >= o else RED
-            candle_height = max(abs(c - o), (h - l) * MIN_CANDLE_RATIO)
-            y_bottom = min(o, c) if abs(c - o) >= (h - l) * MIN_CANDLE_RATIO else min(o, c) - (candle_height - abs(c - o))/2
-            self.ax.plot([i, i], [l, h], color=color, linewidth=1)
-            rect = patches.Rectangle((i - width/2, y_bottom), width, candle_height, facecolor=color)
-            self.ax.add_patch(rect)
-
         price = data[-1, 3]
         min_p, max_p = data[:, 2].min(), data[:, 1].max()
         buffer = (max_p - min_p) * 0.2 if max_p != min_p else max_p * 0.02
@@ -122,17 +118,29 @@ class CryptoChart(BasePanel):
         self.ax.set_ylim(ymin, ymax)
         self.ax.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
 
+        for i, (o, h, l, c) in enumerate(data):
+            color = GREEN if c >= o else RED
+            candle_height = max(abs(c - o), (h - l) * MIN_CANDLE_RATIO)
+            if candle_height < THRESHOLD*(ymax-ymin)/100:
+                candle_height = THRESHOLD*(ymax-ymin)/100
+            y_bottom = min(o, c) if abs(c - o) >= (h - l) * MIN_CANDLE_RATIO else min(o, c) - (candle_height - abs(c - o))/2
+            self.ax.plot([i, i], [l, h], color=color, linewidth=1)
+            rect = patches.Rectangle((i - width/2, y_bottom), width, candle_height, facecolor=color)
+            self.ax.add_patch(rect)
+
+        # Current price line
         line_color = GREEN if self.prev_price is None or price >= self.prev_price else RED
         self.ax.axhline(price, color=line_color, linestyle="--", linewidth=1)
         self.ax.text(
-            1.01, price, f"{price:,.4f}",
+            1.01, price, f"{price:,.2f}",
             transform=self.ax.get_yaxis_transform(),
             color=line_color,
             va="center", ha="left",
             fontdict={"family": "Courier New", "size": PRICE_FONT_SIZE, "weight": "bold"},
-            bbox=dict(facecolor=DARK_BG)
+            bbox=dict(facecolor=DARK_BG, alpha=0.9)
         )
 
+        # Price axis formatting on right
         self.ax.set_facecolor(DARK_BG)
         self.ax.set_ylabel("Price", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
                                               "weight": "bold", "color": GRAY})
@@ -140,6 +148,7 @@ class CryptoChart(BasePanel):
         self.ax.tick_params(axis='y', colors=GRAY)
         self.ax.get_xaxis().set_visible(False)
 
+        # Volume bars
         self.ax2.bar(range(len(vol_data)), vol_data, color=[GREEN if c >= o else RED for o, h, l, c in data])
         tick_spacing = max(1, len(ts)//6)
         tick_labels = [t.strftime("%H:%M") for t in ts]
@@ -147,6 +156,8 @@ class CryptoChart(BasePanel):
         self.ax2.set_xticklabels(tick_labels[::tick_spacing], rotation=30, ha="right",
                                  fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
                                            "weight": "bold", "color": GRAY})
+        self.ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, pos: self.volume_formatter(x, pos)))
+        self.ax2.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
         self.ax2.set_facecolor(DARK_BG)
         self.ax2.set_ylabel("Volume", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
                                                 "weight": "bold", "color": GRAY})
