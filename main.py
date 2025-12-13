@@ -9,6 +9,7 @@ from lib import (
     LastTradePanel,
     log
 )
+from lib.chart import CryptoChart  # <-- Chart import
 
 # ================= COLORS =================
 DARK_BG = "#1d221d"
@@ -48,10 +49,13 @@ class CryptoDashboard:
 
         self.buttons = {}
         self.active_panels = []
+        self.chart_panel = None  # Chart reference
         self.current_symbol = self.load_setting()
+        self.initialized = False  # <-- Track first load
 
         self.setup_ui()
-        self.switch_symbol(self.current_symbol)
+        self.switch_symbol(self.current_symbol)  # First load
+        self.initialized = True  # Now further reloads will check for same symbol
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -116,11 +120,11 @@ class CryptoDashboard:
 
         tk.Label(
             self.right,
-            text="Chart Area (Matplotlib later)",
-            font=("Courier New", 16),
+            text="----- 1 Hour Candlestick Chart -----",
+            font=("Courier New", 16, "bold"),
             bg=LIGHT_BG,
             fg=WHITE
-        ).pack(expand=True)
+        ).pack(expand=True, pady=10)
 
     # ================= HOVER =================
     def on_hover_enter(self, symbol, button):
@@ -140,9 +144,19 @@ class CryptoDashboard:
             p.frame.destroy()
         self.active_panels.clear()
 
-    def switch_symbol(self, symbol):
-        log("MAIN", f"Switching symbol -> {symbol.upper()}")
+        # Clear chart
+        if self.chart_panel:
+            self.chart_panel.stop()
+            self.chart_panel.frame.destroy()
+            self.chart_panel = None
 
+    def switch_symbol(self, symbol):
+        # ---------- SAME SYMBOL CHECK ----------
+        if self.initialized and symbol == self.current_symbol:
+            log("MAIN", f"Symbol {symbol.upper()} already active, skipping reload")
+            return
+
+        log("MAIN", f"Switching symbol -> {symbol.upper()}")
         self.current_symbol = symbol
         self.title.config(text=f"{self.symbols[symbol]} Dashboard")
 
@@ -158,6 +172,9 @@ class CryptoDashboard:
         for p in panels:
             p.frame.pack(fill=tk.X, pady=5)
             self.active_panels.append(p)
+
+        # Chart panel
+        self.chart_panel = CryptoChart(self.right, symbol)
 
         # Update buttons
         for s, btn in self.buttons.items():
