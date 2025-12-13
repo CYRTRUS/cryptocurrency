@@ -49,13 +49,17 @@ class CryptoDashboard:
 
         self.buttons = {}
         self.active_panels = []
-        self.chart_panel = None  # Chart reference
+        self.chart_panel = None
         self.current_symbol = self.load_setting()
-        self.initialized = False  # <-- Track first load
+        self.initialized = False  # track first load
+
+        # Toggle button visibility state
+        self.chart_visible = True
+        self.orderbook_visible = True
 
         self.setup_ui()
-        self.switch_symbol(self.current_symbol)  # First load
-        self.initialized = True  # Now further reloads will check for same symbol
+        self.switch_symbol(self.current_symbol)
+        self.initialized = True
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -87,6 +91,7 @@ class CryptoDashboard:
         close_btn.bind("<Enter>", lambda e: close_btn.config(bg=LIGHT_RED))
         close_btn.bind("<Leave>", lambda e: close_btn.config(bg=RED))
 
+        # Crypto buttons + toggles
         btn_frame = tk.Frame(self.root, bg=DARK_BG)
         btn_frame.pack(fill=tk.X, pady=5)
 
@@ -102,11 +107,41 @@ class CryptoDashboard:
             )
             btn.pack(side=tk.LEFT, padx=8)
 
-            # Hover handlers
             btn.bind("<Enter>", lambda e, s=sym, b=btn: self.on_hover_enter(s, b))
             btn.bind("<Leave>", lambda e, s=sym, b=btn: self.on_hover_leave(s, b))
 
             self.buttons[sym] = btn
+
+        # Toggle buttons packed beside last crypto button
+        self.chart_toggle_btn = tk.Button(
+            btn_frame,
+            text="Chart",
+            font=FONT,
+            fg=GRAY,
+            bg=GREEN,
+            width=10,
+            height=1,
+            relief="flat",
+            command=self.toggle_chart
+        )
+        self.chart_toggle_btn.pack(side=tk.LEFT, padx=5)
+        self.chart_toggle_btn.bind("<Enter>", lambda e: self.chart_toggle_btn.config(bg=HOVER_GREEN))
+        self.chart_toggle_btn.bind("<Leave>", lambda e: self.chart_toggle_btn.config(bg=GREEN if self.chart_visible else DARK_GREEN))
+
+        self.orderbook_toggle_btn = tk.Button(
+            btn_frame,
+            text="OrderBook",
+            font=FONT,
+            fg=GRAY,
+            bg=GREEN,
+            width=10,
+            height=1,
+            relief="flat",
+            command=self.toggle_orderbook
+        )
+        self.orderbook_toggle_btn.pack(side=tk.LEFT, padx=5)
+        self.orderbook_toggle_btn.bind("<Enter>", lambda e: self.orderbook_toggle_btn.config(bg=HOVER_GREEN))
+        self.orderbook_toggle_btn.bind("<Leave>", lambda e: self.orderbook_toggle_btn.config(bg=GREEN if self.orderbook_visible else DARK_GREEN))
 
         main = tk.Frame(self.root, bg=DARK_BG)
         main.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -144,14 +179,12 @@ class CryptoDashboard:
             p.frame.destroy()
         self.active_panels.clear()
 
-        # Clear chart
         if self.chart_panel:
             self.chart_panel.stop()
             self.chart_panel.frame.destroy()
             self.chart_panel = None
 
     def switch_symbol(self, symbol):
-        # ---------- SAME SYMBOL CHECK ----------
         if self.initialized and symbol == self.current_symbol:
             log("MAIN", f"Symbol {symbol.upper()} already active, skipping reload")
             return
@@ -162,26 +195,45 @@ class CryptoDashboard:
 
         self.clear_panels()
 
+        # LastTrade above OrderBook
         panels = [
             CryptoTicker(self.left, symbol, self.symbols[symbol]),
             VolumePanel(self.left, symbol),
-            OrderBookPanel(self.left, symbol),
-            LastTradePanel(self.left, symbol)
+            LastTradePanel(self.left, symbol),
+            OrderBookPanel(self.left, symbol)
         ]
 
         for p in panels:
             p.frame.pack(fill=tk.X, pady=5)
             self.active_panels.append(p)
 
-        # Chart panel
         self.chart_panel = CryptoChart(self.right, symbol)
 
-        # Update buttons
         for s, btn in self.buttons.items():
             if s == symbol:
                 btn.config(bg=GREEN, fg=WHITE)
             else:
                 btn.config(bg=DARK_GREEN, fg=GRAY)
+
+    # ================= TOGGLE BUTTONS =================
+    def toggle_chart(self):
+        if self.chart_panel:
+            if self.chart_visible:
+                self.chart_panel.frame.pack_forget()
+            else:
+                self.chart_panel.frame.pack(fill=tk.BOTH, expand=True)
+            self.chart_visible = not self.chart_visible
+            self.chart_toggle_btn.config(bg=GREEN if self.chart_visible else DARK_GREEN)
+
+    def toggle_orderbook(self):
+        for p in self.active_panels:
+            if p.__class__.__name__ == "OrderBookPanel":
+                if self.orderbook_visible:
+                    p.frame.pack_forget()
+                else:
+                    p.frame.pack(fill=tk.X, pady=5)
+                self.orderbook_visible = not self.orderbook_visible
+                self.orderbook_toggle_btn.config(bg=GREEN if self.orderbook_visible else DARK_GREEN)
 
     # ================= SETTINGS =================
     def load_setting(self):
