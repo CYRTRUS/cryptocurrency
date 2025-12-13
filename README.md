@@ -62,8 +62,7 @@ python main.py
 crypto_dashboard/
 ├── main.py             # Entry point, main dashboard
 ├── media/              # Entry point, main dashboard
-│ ├── ui_design_01.png  # Figma UI Design
-│ └── demonstrate.mp4   # Demonstrating video
+│ └── ui_design_01.png  # Figma UI Design
 ├── lib/                # Panels and utilities
 │ ├── **init**.py
 │ ├── ticker.py         # CryptoTicker panel
