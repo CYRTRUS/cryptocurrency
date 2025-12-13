@@ -32,7 +32,7 @@ A real-time cryptocurrency dashboard built with Python and Tkinter. Displays liv
 - Dependencies (install via pip):
 
 ```
-pip install tkinter websocket-client requests numpy matplotlib
+pip install -r requirements.txt
 ```
 
 ### Clone the Repository
@@ -73,10 +73,10 @@ crypto_dashboard/
 │ ├── debug.py          # Logging utility
 │ ├── base_panel.py     # Base panel for Tkinter panels
 │ └── base.py           # Base panel for WebSocket panels
-├── setting.json        # Saved preferences (auto-created)
+├── requirements.txt    # All required dependencies
 └── README.md           # This file
 ```
 
-## Figma UI Design
+## The First Figma UI Design
 
 ![My Figama UI Design](media/ui_design_01.png)
