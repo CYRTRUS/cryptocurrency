@@ -107,9 +107,7 @@ class CryptoDashboard:
         self.orderbook_toggle_btn.bind("<Enter>", lambda e: self.orderbook_toggle_btn.config(bg=LIGHT_YELLOW))
         self.orderbook_toggle_btn.bind(
             "<Leave>",
-            lambda e: self.orderbook_toggle_btn.config(
-                bg=YELLOW if self.orderbook_visible else DARK_YELLOW
-            )
+            lambda e: self.orderbook_toggle_btn.config(bg=YELLOW if self.orderbook_visible else DARK_YELLOW)
         )
 
         self.chart_toggle_btn = tk.Button(btn_frame, text="Chart", font=FONT, fg="black", width=10, height=1,
@@ -118,9 +116,7 @@ class CryptoDashboard:
         self.chart_toggle_btn.bind("<Enter>", lambda e: self.chart_toggle_btn.config(bg=LIGHT_YELLOW))
         self.chart_toggle_btn.bind(
             "<Leave>",
-            lambda e: self.chart_toggle_btn.config(
-                bg=YELLOW if self.chart_visible else DARK_YELLOW
-            )
+            lambda e: self.chart_toggle_btn.config(bg=YELLOW if self.chart_visible else DARK_YELLOW)
         )
 
         main = tk.Frame(self.root, bg=DARK_BG)
@@ -168,6 +164,9 @@ class CryptoDashboard:
         if self.initialized and symbol == self.current_symbol:
             log("MAIN", f"Symbol {symbol.upper()} already active, skipping reload")
             return
+
+        # Save current toggle state before switching
+        self.save_current_settings()
 
         log("MAIN", f"Switching symbol -> {symbol.upper()}")
         self.current_symbol = symbol
@@ -218,6 +217,7 @@ class CryptoDashboard:
                 log("TOGGLE", f"Chart shown for {self.current_symbol.upper()}")
             self.chart_visible = not self.chart_visible
             self.chart_toggle_btn.config(bg=YELLOW if self.chart_visible else DARK_YELLOW)
+            self.save_current_settings()
 
     def toggle_orderbook(self):
         for p in self.active_panels:
@@ -226,6 +226,7 @@ class CryptoDashboard:
                 log("TOGGLE", f"OrderBook {'shown' if not self.orderbook_visible else 'hidden'} for {self.current_symbol.upper()}")
         self.orderbook_visible = not self.orderbook_visible
         self.orderbook_toggle_btn.config(bg=YELLOW if self.orderbook_visible else DARK_YELLOW)
+        self.save_current_settings()
 
     # ================= SETTINGS =================
     def load_settings(self):
@@ -243,8 +244,7 @@ class CryptoDashboard:
         # File not found or error -> return default
         return DEFAULT_SETTINGS.copy()
 
-    def on_close(self):
-        # Save current states
+    def save_current_settings(self):
         self.settings["last_symbol"] = self.current_symbol
         self.settings[self.current_symbol] = {
             "view_chart": int(self.chart_visible),
@@ -256,6 +256,8 @@ class CryptoDashboard:
         except Exception as e:
             log("MAIN", f"Error saving settings: {e}")
 
+    def on_close(self):
+        self.save_current_settings()
         log("MAIN", "Closing application")
         self.root.destroy()
 
