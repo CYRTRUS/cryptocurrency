@@ -17,6 +17,8 @@ def get_base_asset(symbol: str) -> str:
 
 
 class VolumePanel:
+    """Volume panel does not use WebSocket, simple API fetch."""
+
     def __init__(self, parent, symbol):
         self.parent = parent
         self.symbol = symbol.upper()
@@ -24,15 +26,7 @@ class VolumePanel:
 
         self.frame = tk.Frame(parent, bg=DARK_BG, padx=10, pady=10)
 
-        # Placeholder
-        self.label = tk.Label(
-            self.frame,
-            font=FONT,
-            bg=DARK_BG,
-            fg=WHITE,
-            anchor="w",
-            text="24h Volume : --"
-        )
+        self.label = tk.Label(self.frame, font=FONT, bg=DARK_BG, fg=WHITE, anchor="w", text="24h Volume : --")
         self.label.pack(fill=tk.X)
 
         threading.Thread(target=self.fetch, daemon=True).start()
@@ -40,17 +34,14 @@ class VolumePanel:
     def fetch(self):
         try:
             log("VOLUME", f"Fetching 24h volume {self.symbol}")
-
             data = requests.get(
                 "https://api.binance.com/api/v3/ticker/24hr",
                 params={"symbol": self.symbol},
                 timeout=5
             ).json()
             volume = float(data["volume"])
-
             self.parent.after(0, lambda: self.safe_update(volume))
             log("VOLUME", f"Loaded 24h volume {volume:,.3f} {self.unit}")
-
         except Exception as e:
             log("VOLUME", f"Error {e}")
 

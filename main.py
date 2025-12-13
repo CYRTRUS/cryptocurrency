@@ -7,14 +7,14 @@ from lib import (
     VolumePanel,
     OrderBookPanel,
     LastTradePanel,
+    CryptoChart,
     log
 )
-from lib.chart import CryptoChart
 
 # ================= COLORS =================
 LIGHT_BG = "#242a24"
 DARK_BG = "#1d221d"
-LIGHT_GREEN = "#73BD64"  # hover color for crypto buttons
+LIGHT_GREEN = "#73BD64"
 GREEN = "#199400"
 DARK_GREEN = "#104006"
 WHITE = "#ffffff"
@@ -27,8 +27,18 @@ DARK_YELLOW = "#8d6e00"
 
 FONT = ("Courier New", 11, "bold")
 TITLE_FONT = ("Courier New", 18, "bold")
-
 SETTINGS_FILE = "setting.json"
+
+# Default setting structure
+DEFAULT_SETTINGS = {
+    "last_symbol": "btcusdt",
+    "btcusdt": {"view_orderbook": 1, "view_chart": 1},
+    "ethusdt": {"view_orderbook": 1, "view_chart": 1},
+    "solusdt": {"view_orderbook": 1, "view_chart": 1},
+    "bnbusdt": {"view_orderbook": 1, "view_chart": 1},
+    "xrpusdt": {"view_orderbook": 1, "view_chart": 1},
+    "usdcusdt": {"view_orderbook": 1, "view_chart": 1}
+}
 
 
 class CryptoDashboard:
@@ -53,11 +63,12 @@ class CryptoDashboard:
         self.buttons = {}
         self.active_panels = []
         self.chart_panel = None
-        self.current_symbol = self.load_setting()
+        self.settings = self.load_settings()
+        self.current_symbol = self.settings.get("last_symbol", "btcusdt")
         self.initialized = False
 
-        self.chart_visible = True
-        self.orderbook_visible = True
+        self.chart_visible = bool(self.settings.get(self.current_symbol, {}).get("view_chart", 1))
+        self.orderbook_visible = bool(self.settings.get(self.current_symbol, {}).get("view_orderbook", 1))
 
         self.setup_ui()
         self.switch_symbol(self.current_symbol)
@@ -70,79 +81,47 @@ class CryptoDashboard:
         header = tk.Frame(self.root, bg=DARK_BG)
         header.pack(fill=tk.X)
 
-        self.title = tk.Label(
-            header,
-            font=TITLE_FONT,
-            fg=WHITE,
-            bg=DARK_BG,
-            padx=20
-        )
+        self.title = tk.Label(header, font=TITLE_FONT, fg=WHITE, bg=DARK_BG, padx=20)
         self.title.pack(side=tk.LEFT)
 
-        close_btn = tk.Button(
-            header,
-            text="X",
-            font=("Courier New", 12, "bold"),
-            bg=RED,
-            fg=WHITE,
-            bd=0,
-            command=self.on_close
-        )
+        close_btn = tk.Button(header, text="X", font=("Courier New", 12, "bold"), bg=RED, fg=WHITE, bd=0, command=self.on_close)
         close_btn.pack(side=tk.RIGHT, padx=15)
         close_btn.bind("<Enter>", lambda e: close_btn.config(bg=LIGHT_RED))
         close_btn.bind("<Leave>", lambda e: close_btn.config(bg=RED))
 
-        # Crypto buttons
         btn_frame = tk.Frame(self.root, bg=DARK_BG)
         btn_frame.pack(fill=tk.X, pady=5)
 
         for sym, name in self.symbols.items():
-            btn = tk.Button(
-                btn_frame,
-                text=name,
-                font=FONT,
-                bg=DARK_GREEN,
-                fg=GRAY,
-                relief="flat",
-                command=lambda s=sym: self.switch_symbol(s)
-            )
+            btn = tk.Button(btn_frame, text=name, font=FONT, bg=DARK_GREEN, fg=GRAY, relief="flat",
+                            command=lambda s=sym: self.switch_symbol(s))
             btn.pack(side=tk.LEFT, padx=8)
             btn.bind("<Enter>", lambda e, s=sym, b=btn: self.on_hover_enter(s, b))
             btn.bind("<Leave>", lambda e, s=sym, b=btn: self.on_hover_leave(s, b))
             self.buttons[sym] = btn
 
-        # Toggle buttons: OrderBook first, Chart second
-        self.orderbook_toggle_btn = tk.Button(
-            btn_frame,
-            text="OrderBook",
-            font=FONT,
-            fg="black",
-            bg=YELLOW,
-            width=10,
-            height=1,
-            relief="flat",
-            command=self.toggle_orderbook
-        )
+        # Toggle buttons
+        self.orderbook_toggle_btn = tk.Button(btn_frame, text="OrderBook", font=FONT, fg="black", width=10, height=1,
+                                              relief="flat", command=self.toggle_orderbook)
         self.orderbook_toggle_btn.pack(side=tk.LEFT, padx=5)
         self.orderbook_toggle_btn.bind("<Enter>", lambda e: self.orderbook_toggle_btn.config(bg=LIGHT_YELLOW))
-        self.orderbook_toggle_btn.bind("<Leave>", lambda e: self.orderbook_toggle_btn.config(
-            bg=YELLOW if self.orderbook_visible else DARK_YELLOW))
-
-        self.chart_toggle_btn = tk.Button(
-            btn_frame,
-            text="Chart",
-            font=FONT,
-            fg="black",
-            bg=YELLOW,
-            width=10,
-            height=1,
-            relief="flat",
-            command=self.toggle_chart
+        self.orderbook_toggle_btn.bind(
+            "<Leave>",
+            lambda e: self.orderbook_toggle_btn.config(
+                bg=YELLOW if self.orderbook_visible else DARK_YELLOW
+            )
         )
+
+        self.chart_toggle_btn = tk.Button(btn_frame, text="Chart", font=FONT, fg="black", width=10, height=1,
+                                          relief="flat", command=self.toggle_chart)
         self.chart_toggle_btn.pack(side=tk.LEFT, padx=5)
         self.chart_toggle_btn.bind("<Enter>", lambda e: self.chart_toggle_btn.config(bg=LIGHT_YELLOW))
-        self.chart_toggle_btn.bind("<Leave>", lambda e: self.chart_toggle_btn.config(
-            bg=YELLOW if self.chart_visible else DARK_YELLOW))
+        self.chart_toggle_btn.bind(
+            "<Leave>",
+            lambda e: self.chart_toggle_btn.config(
+                bg=YELLOW if self.chart_visible else DARK_YELLOW
+            )
+        )
 
         main = tk.Frame(self.root, bg=DARK_BG)
         main.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -154,16 +133,10 @@ class CryptoDashboard:
         self.right = tk.Frame(main, bg=LIGHT_BG)
         self.right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        # Right header (small, not expanding)
         self.right_header = tk.Frame(self.right, bg=LIGHT_BG)
         self.right_header.pack(fill=tk.X)
-        tk.Label(
-            self.right_header,
-            text="——— 1 Hour Candlestick Chart ———",
-            font=("Courier New", 16, "bold"),
-            bg=LIGHT_BG,
-            fg=WHITE
-        ).pack(expand=True, pady=10)
+        tk.Label(self.right_header, text="——— 1 Hour Candlestick Chart ———", font=("Courier New", 16, "bold"),
+                 bg=LIGHT_BG, fg=WHITE).pack(expand=True, pady=10)
 
         self.right_chart_container = tk.Frame(self.right, bg=LIGHT_BG)
         self.right_chart_container.pack(fill=tk.BOTH, expand=True)
@@ -215,6 +188,19 @@ class CryptoDashboard:
 
         self.chart_panel = CryptoChart(self.right_chart_container, symbol)
 
+        # Restore toggle states
+        self.chart_visible = bool(self.settings.get(symbol, {}).get("view_chart", 1))
+        self.orderbook_visible = bool(self.settings.get(symbol, {}).get("view_orderbook", 1))
+        if not self.chart_visible:
+            self.chart_panel.frame.pack_forget()
+        if not self.orderbook_visible:
+            for p in self.active_panels:
+                if p.__class__.__name__ == "OrderBookPanel":
+                    p.set_visible(False)
+
+        self.chart_toggle_btn.config(bg=YELLOW if self.chart_visible else DARK_YELLOW)
+        self.orderbook_toggle_btn.config(bg=YELLOW if self.orderbook_visible else DARK_YELLOW)
+
         for s, btn in self.buttons.items():
             if s == symbol:
                 btn.config(bg=GREEN, fg=WHITE)
@@ -242,19 +228,35 @@ class CryptoDashboard:
         self.orderbook_toggle_btn.config(bg=YELLOW if self.orderbook_visible else DARK_YELLOW)
 
     # ================= SETTINGS =================
-    def load_setting(self):
+    def load_settings(self):
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE) as f:
-                    return json.load(f).get("last_symbol", "btcusdt")
-            except:
-                pass
-        return "btcusdt"
+                    data = json.load(f)
+                    # Ensure all keys exist
+                    for sym, default in DEFAULT_SETTINGS.items():
+                        if sym not in data:
+                            data[sym] = default if isinstance(default, dict) else {}
+                    return data
+            except Exception as e:
+                log("MAIN", f"Error loading settings: {e}")
+        # File not found or error -> return default
+        return DEFAULT_SETTINGS.copy()
 
     def on_close(self):
+        # Save current states
+        self.settings["last_symbol"] = self.current_symbol
+        self.settings[self.current_symbol] = {
+            "view_chart": int(self.chart_visible),
+            "view_orderbook": int(self.orderbook_visible)
+        }
+        try:
+            with open(SETTINGS_FILE, "w") as f:
+                json.dump(self.settings, f, indent=2)
+        except Exception as e:
+            log("MAIN", f"Error saving settings: {e}")
+
         log("MAIN", "Closing application")
-        with open(SETTINGS_FILE, "w") as f:
-            json.dump({"last_symbol": self.current_symbol}, f, indent=2)
         self.root.destroy()
 
 

@@ -6,8 +6,9 @@ import numpy as np
 import requests
 from datetime import datetime
 import threading
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from .debug import log
+from .base_panel import BasePanel
 
 # ================= COLORS =================
 DARK_BG = "#242a24"
@@ -16,25 +17,23 @@ GREEN = "#57b045"
 RED = "#ff4444"
 GRAY = "#b5b5b5"
 
-PRICE_FONT_SIZE = 12  # Current price line font
-LABEL_FONT_SIZE = 9   # Axis, volume, time labels font
+PRICE_FONT_SIZE = 12
+LABEL_FONT_SIZE = 9
 MIN_CANDLE_RATIO = 0.01
-UPDATE_INTERVAL = 3   # seconds
+UPDATE_INTERVAL = 3  # seconds
 
 
-class CryptoChart:
+class CryptoChart(BasePanel):
     def __init__(self, parent, symbol, interval="1m", limit=60):
-        self.parent = parent
+        super().__init__(parent)
         self.symbol = symbol.upper()
         self.interval = interval
         self.limit = limit
-        self.running = True
         self.prev_price = None
 
         log("CHART", f"Initializing chart for {self.symbol}")
 
-        # Tkinter frame
-        self.frame = tk.Frame(parent, bg=DARK_BG)
+        self.frame.config(bg=DARK_BG)
         self.frame.pack(fill=tk.BOTH, expand=True)
 
         # Candlestick chart
@@ -51,7 +50,6 @@ class CryptoChart:
         self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.frame)
         self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # Set axis formatters
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.price_formatter))
         self.ax2.yaxis.set_major_formatter(FuncFormatter(self.volume_formatter))
 
@@ -61,7 +59,6 @@ class CryptoChart:
     # ---------------- Formatters ----------------
     @staticmethod
     def price_formatter(x, pos):
-        """Dynamic price formatting for y-axis."""
         if x >= 10:
             return f"{x:,.0f}"
         elif x >= 1:
@@ -71,7 +68,6 @@ class CryptoChart:
 
     @staticmethod
     def volume_formatter(x, pos):
-        """Format volume labels dynamically."""
         if x >= 1_000_000:
             return f"{x/1_000_000:.0f}M"
         elif x >= 1_000:
@@ -110,7 +106,6 @@ class CryptoChart:
 
         width = 0.6
 
-        # Draw candlesticks
         for i, (o, h, l, c) in enumerate(data):
             color = GREEN if c >= o else RED
             candle_height = max(abs(c - o), (h - l) * MIN_CANDLE_RATIO)
@@ -120,14 +115,13 @@ class CryptoChart:
             self.ax.add_patch(rect)
 
         price = data[-1, 3]
-
-        # Compute y-axis with buffer
         min_p, max_p = data[:, 2].min(), data[:, 1].max()
-        buffer = (max_p - min_p) * 0.2 if max_p != min_p else max_p*0.02
-        self.ax.set_ylim(min(min_p - buffer, price - buffer*1.5),
-                         max(max_p + buffer, price + buffer*1.5))
+        buffer = (max_p - min_p) * 0.2 if max_p != min_p else max_p * 0.02
+        ymin = min(min_p - buffer, price - buffer*1.5)
+        ymax = max(max_p + buffer, price + buffer*1.5)
+        self.ax.set_ylim(ymin, ymax)
+        self.ax.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
 
-        # Current price line
         line_color = GREEN if self.prev_price is None or price >= self.prev_price else RED
         self.ax.axhline(price, color=line_color, linestyle="--", linewidth=1)
         self.ax.text(
@@ -139,7 +133,6 @@ class CryptoChart:
             bbox=dict(facecolor=DARK_BG)
         )
 
-        # Axis & grid
         self.ax.set_facecolor(DARK_BG)
         self.ax.set_ylabel("Price", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
                                               "weight": "bold", "color": GRAY})
@@ -147,9 +140,7 @@ class CryptoChart:
         self.ax.tick_params(axis='y', colors=GRAY)
         self.ax.get_xaxis().set_visible(False)
 
-        # Volume chart
-        self.ax2.bar(range(len(vol_data)), vol_data,
-                     color=[GREEN if c >= o else RED for o, h, l, c in data])
+        self.ax2.bar(range(len(vol_data)), vol_data, color=[GREEN if c >= o else RED for o, h, l, c in data])
         tick_spacing = max(1, len(ts)//6)
         tick_labels = [t.strftime("%H:%M") for t in ts]
         self.ax2.set_xticks(np.arange(0, len(tick_labels), tick_spacing))
@@ -178,10 +169,5 @@ class CryptoChart:
         while self.running:
             klines = self.fetch_klines()
             if klines:
-                self.parent.after(0, lambda k=klines: self.plot(k))
+                self.safe_update(self.plot, klines)
             threading.Event().wait(UPDATE_INTERVAL)
-
-    # ---------------- Stop ----------------
-    def stop(self):
-        log("CHART", f"Stopping chart for {self.symbol}")
-        self.running = False

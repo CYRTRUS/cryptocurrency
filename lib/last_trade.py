@@ -3,6 +3,7 @@ import json
 import threading
 import websocket
 from .debug import log
+from .base import BasePanel
 
 DARK_BG = "#242a24"
 WHITE = "#ffffff"
@@ -11,23 +12,15 @@ RED = "#ff4444"
 FONT = ("Courier New", 11, "bold")
 
 
-class LastTradePanel:
+class LastTradePanel(BasePanel):
     def __init__(self, parent, symbol):
+        super().__init__()
         self.parent = parent
         self.symbol = symbol.lower()
-        self.running = True
 
         self.frame = tk.Frame(parent, bg=DARK_BG, padx=10, pady=10)
 
-        # Placeholder
-        self.label = tk.Label(
-            self.frame,
-            font=FONT,
-            bg=DARK_BG,
-            fg=WHITE,
-            anchor="w",
-            text="Last trade : --"
-        )
+        self.label = tk.Label(self.frame, font=FONT, bg=DARK_BG, fg=WHITE, anchor="w", text="Last trade : --")
         self.label.pack(fill=tk.X)
 
         log("TRADE", f"Starting WebSocket for {self.symbol.upper()}")
@@ -63,11 +56,3 @@ class LastTradePanel:
 
     def on_close_ws(self, ws, *args):
         log("TRADE", "WebSocket closed")
-
-    def stop(self):
-        log("LAST TRADE", "Stopping")
-        self.running = False
-        try:
-            self.ws.close()
-        except:
-            pass
