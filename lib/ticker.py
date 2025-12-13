@@ -40,7 +40,7 @@ class CryptoTicker:
 
         self.change_label = tk.Label(
             self.frame,
-            font=FONT,
+            font=("Courier New", 11, "bold"),
             bg=DARK_BG,
             fg=WHITE
         )

@@ -1,5 +1,3 @@
-# lib/__init__.py
-
 from .ticker import CryptoTicker
 from .volume import VolumePanel
 from .orderbook import OrderBookPanel

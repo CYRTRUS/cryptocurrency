@@ -9,18 +9,21 @@ from lib import (
     LastTradePanel,
     log
 )
-from lib.chart import CryptoChart  # <-- Chart import
+from lib.chart import CryptoChart
 
 # ================= COLORS =================
-DARK_BG = "#1d221d"
 LIGHT_BG = "#242a24"
+DARK_BG = "#1d221d"
+LIGHT_GREEN = "#73BD64"  # hover color for crypto buttons
 GREEN = "#199400"
 DARK_GREEN = "#104006"
-HOVER_GREEN = "#155a15"
 WHITE = "#ffffff"
 GRAY = "#9c9c9c"
 RED = "#ff4444"
 LIGHT_RED = "#ff6666"
+YELLOW = "#ffc800"
+LIGHT_YELLOW = "#ffe587"
+DARK_YELLOW = "#8d6e00"
 
 FONT = ("Courier New", 11, "bold")
 TITLE_FONT = ("Courier New", 18, "bold")
@@ -51,9 +54,8 @@ class CryptoDashboard:
         self.active_panels = []
         self.chart_panel = None
         self.current_symbol = self.load_setting()
-        self.initialized = False  # track first load
+        self.initialized = False
 
-        # Toggle button visibility state
         self.chart_visible = True
         self.orderbook_visible = True
 
@@ -87,11 +89,10 @@ class CryptoDashboard:
             command=self.on_close
         )
         close_btn.pack(side=tk.RIGHT, padx=15)
-
         close_btn.bind("<Enter>", lambda e: close_btn.config(bg=LIGHT_RED))
         close_btn.bind("<Leave>", lambda e: close_btn.config(bg=RED))
 
-        # Crypto buttons + toggles
+        # Crypto buttons
         btn_frame = tk.Frame(self.root, bg=DARK_BG)
         btn_frame.pack(fill=tk.X, pady=5)
 
@@ -106,42 +107,42 @@ class CryptoDashboard:
                 command=lambda s=sym: self.switch_symbol(s)
             )
             btn.pack(side=tk.LEFT, padx=8)
-
             btn.bind("<Enter>", lambda e, s=sym, b=btn: self.on_hover_enter(s, b))
             btn.bind("<Leave>", lambda e, s=sym, b=btn: self.on_hover_leave(s, b))
-
             self.buttons[sym] = btn
 
-        # Toggle buttons packed beside last crypto button
-        self.chart_toggle_btn = tk.Button(
-            btn_frame,
-            text="Chart",
-            font=FONT,
-            fg=GRAY,
-            bg=GREEN,
-            width=10,
-            height=1,
-            relief="flat",
-            command=self.toggle_chart
-        )
-        self.chart_toggle_btn.pack(side=tk.LEFT, padx=5)
-        self.chart_toggle_btn.bind("<Enter>", lambda e: self.chart_toggle_btn.config(bg=HOVER_GREEN))
-        self.chart_toggle_btn.bind("<Leave>", lambda e: self.chart_toggle_btn.config(bg=GREEN if self.chart_visible else DARK_GREEN))
-
+        # Toggle buttons: OrderBook first, Chart second
         self.orderbook_toggle_btn = tk.Button(
             btn_frame,
             text="OrderBook",
             font=FONT,
-            fg=GRAY,
-            bg=GREEN,
+            fg="black",
+            bg=YELLOW,
             width=10,
             height=1,
             relief="flat",
             command=self.toggle_orderbook
         )
         self.orderbook_toggle_btn.pack(side=tk.LEFT, padx=5)
-        self.orderbook_toggle_btn.bind("<Enter>", lambda e: self.orderbook_toggle_btn.config(bg=HOVER_GREEN))
-        self.orderbook_toggle_btn.bind("<Leave>", lambda e: self.orderbook_toggle_btn.config(bg=GREEN if self.orderbook_visible else DARK_GREEN))
+        self.orderbook_toggle_btn.bind("<Enter>", lambda e: self.orderbook_toggle_btn.config(bg=LIGHT_YELLOW))
+        self.orderbook_toggle_btn.bind("<Leave>", lambda e: self.orderbook_toggle_btn.config(
+            bg=YELLOW if self.orderbook_visible else DARK_YELLOW))
+
+        self.chart_toggle_btn = tk.Button(
+            btn_frame,
+            text="Chart",
+            font=FONT,
+            fg="black",
+            bg=YELLOW,
+            width=10,
+            height=1,
+            relief="flat",
+            command=self.toggle_chart
+        )
+        self.chart_toggle_btn.pack(side=tk.LEFT, padx=5)
+        self.chart_toggle_btn.bind("<Enter>", lambda e: self.chart_toggle_btn.config(bg=LIGHT_YELLOW))
+        self.chart_toggle_btn.bind("<Leave>", lambda e: self.chart_toggle_btn.config(
+            bg=YELLOW if self.chart_visible else DARK_YELLOW))
 
         main = tk.Frame(self.root, bg=DARK_BG)
         main.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -153,18 +154,24 @@ class CryptoDashboard:
         self.right = tk.Frame(main, bg=LIGHT_BG)
         self.right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=5)
 
+        # Right header (small, not expanding)
+        self.right_header = tk.Frame(self.right, bg=LIGHT_BG)
+        self.right_header.pack(fill=tk.X)
         tk.Label(
-            self.right,
-            text="----- 1 Hour Candlestick Chart -----",
+            self.right_header,
+            text="---- 1 Hour Candlestick Chart ----",
             font=("Courier New", 16, "bold"),
             bg=LIGHT_BG,
             fg=WHITE
         ).pack(expand=True, pady=10)
 
+        self.right_chart_container = tk.Frame(self.right, bg=LIGHT_BG)
+        self.right_chart_container.pack(fill=tk.BOTH, expand=True)
+
     # ================= HOVER =================
     def on_hover_enter(self, symbol, button):
         if symbol != self.current_symbol:
-            button.config(bg=HOVER_GREEN)
+            button.config(fg=WHITE, bg=LIGHT_GREEN)
 
     def on_hover_leave(self, symbol, button):
         if symbol == self.current_symbol:
@@ -195,7 +202,6 @@ class CryptoDashboard:
 
         self.clear_panels()
 
-        # LastTrade above OrderBook
         panels = [
             CryptoTicker(self.left, symbol, self.symbols[symbol]),
             VolumePanel(self.left, symbol),
@@ -207,7 +213,7 @@ class CryptoDashboard:
             p.frame.pack(fill=tk.X, pady=5)
             self.active_panels.append(p)
 
-        self.chart_panel = CryptoChart(self.right, symbol)
+        self.chart_panel = CryptoChart(self.right_chart_container, symbol)
 
         for s, btn in self.buttons.items():
             if s == symbol:
@@ -220,20 +226,20 @@ class CryptoDashboard:
         if self.chart_panel:
             if self.chart_visible:
                 self.chart_panel.frame.pack_forget()
+                log("TOGGLE", f"Chart hidden for {self.current_symbol.upper()}")
             else:
                 self.chart_panel.frame.pack(fill=tk.BOTH, expand=True)
+                log("TOGGLE", f"Chart shown for {self.current_symbol.upper()}")
             self.chart_visible = not self.chart_visible
-            self.chart_toggle_btn.config(bg=GREEN if self.chart_visible else DARK_GREEN)
+            self.chart_toggle_btn.config(bg=YELLOW if self.chart_visible else DARK_YELLOW)
 
     def toggle_orderbook(self):
         for p in self.active_panels:
             if p.__class__.__name__ == "OrderBookPanel":
-                if self.orderbook_visible:
-                    p.frame.pack_forget()
-                else:
-                    p.frame.pack(fill=tk.X, pady=5)
-                self.orderbook_visible = not self.orderbook_visible
-                self.orderbook_toggle_btn.config(bg=GREEN if self.orderbook_visible else DARK_GREEN)
+                p.set_visible(not self.orderbook_visible)
+                log("TOGGLE", f"OrderBook {'shown' if not self.orderbook_visible else 'hidden'} for {self.current_symbol.upper()}")
+        self.orderbook_visible = not self.orderbook_visible
+        self.orderbook_toggle_btn.config(bg=YELLOW if self.orderbook_visible else DARK_YELLOW)
 
     # ================= SETTINGS =================
     def load_setting(self):
