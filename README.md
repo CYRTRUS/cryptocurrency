@@ -39,7 +39,7 @@ pip install tkinter websocket-client requests numpy matplotlib
 
 ```
 git clone https://github.com/CYRTRUS/cryptocurrency.git
-cd crypto-dashboard
+cd cryptocurrency
 ```
 
 ## Usage
