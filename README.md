@@ -2,6 +2,28 @@
 
 A real-time cryptocurrency dashboard built with Python and Tkinter. Displays live market data from Binance, including price tickers, volume, order book, recent trades, and candlestick charts. Supports multiple cryptocurrencies with toggleable panels and saved preferences.
 
+## Project Structure
+
+```bash
+crypto_dashboard/
+├── main.py             # Entry point, main dashboard
+├── media/              # Entry point, main dashboard
+│ ├── ui_design_01.png  # Figma UI Design
+│ └── demonstrate.mp4   # Demonstrate video
+├── lib/                # Panels and utilities
+│ ├── **init**.py
+│ ├── ticker.py         # CryptoTicker panel
+│ ├── volume.py         # 24h Volume panel
+│ ├── orderbook.py      # OrderBookPanel
+│ ├── last_trade.py     # LastTradePanel
+│ ├── chart.py          # Candlestick chart panel
+│ ├── debug.py          # Logging utility
+│ ├── base_panel.py     # Base panel for Tkinter panels
+│ └── base.py           # Base panel for WebSocket panels
+├── requirements.txt    # All required dependencies
+└── README.md           # This file
+```
+
 ## Features
 
 ### Core Features
@@ -56,26 +78,16 @@ python main.py
 
 - Settings are automatically saved on exit.
 
-## Project Structure
+## The First Figma UI Design
 
-```bash
-crypto_dashboard/
-├── main.py             # Entry point, main dashboard
-├── media/              # Entry point, main dashboard
-│ └── ui_design_01.png  # Figma UI Design
-├── lib/                # Panels and utilities
-│ ├── **init**.py
-│ ├── ticker.py         # CryptoTicker panel
-│ ├── volume.py         # 24h Volume panel
-│ ├── orderbook.py      # OrderBookPanel
-│ ├── last_trade.py     # LastTradePanel
-│ ├── chart.py          # Candlestick chart panel
-│ ├── debug.py          # Logging utility
-│ ├── base_panel.py     # Base panel for Tkinter panels
-│ └── base.py           # Base panel for WebSocket panels
-├── requirements.txt    # All required dependencies
-└── README.md           # This file
-```
+![My Figama UI Design](media/ui_design_01.png)
+
+## Demonstrate Video
+
+<video width="800" controls>
+  <source src="media/demonstrate.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ## Project Requirements & Grading Rubric
 
@@ -124,7 +136,3 @@ crypto_dashboard/
 - ✅ Displays comprehensive market data
 - ✅ Multiple panels with different information types
 - ✅ Efficient use of screen space
-
-## The First Figma UI Design
-
-![My Figama UI Design](media/ui_design_01.png)
