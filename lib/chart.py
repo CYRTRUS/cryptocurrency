@@ -20,7 +20,7 @@ GRAY = "#b5b5b5"
 PRICE_FONT_SIZE = 12
 LABEL_FONT_SIZE = 9
 MIN_CANDLE_RATIO = 0.01
-THRESHOLD = 0.25  # percent
+THRESHOLD = 0.1  # percent
 UPDATE_INTERVAL = 3  # seconds
 
 
@@ -53,9 +53,11 @@ class CryptoChart(BasePanel):
 
         # Apply formatters
         self.ax.yaxis.set_major_formatter(FuncFormatter(self.price_formatter))
-        self.ax.yaxis.set_label_position("right")  # Move label to right
-        self.ax.yaxis.tick_right()  # Tick labels on right
-        self.ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, pos: self.volume_formatter(x, pos)))
+        self.ax.yaxis.tick_right()  # price ticks right (label stays left)
+
+        self.ax2.yaxis.set_major_formatter(FuncFormatter(self.volume_formatter))
+        self.ax2.yaxis.tick_right()  # volume ticks right
+        self.ax2.yaxis.set_label_position("left")  # FORCE label left
 
         # Start update loop
         threading.Thread(target=self.update_loop, daemon=True).start()
@@ -96,7 +98,7 @@ class CryptoChart(BasePanel):
         if not klines:
             return
 
-        ts = [datetime.fromtimestamp(k[0]/1000) for k in klines]
+        ts = [datetime.fromtimestamp(k[0] / 1000) for k in klines]
         data = np.array(klines)[:, 1:5].astype(float)
         vol_data = np.array(klines)[:, 5].astype(float)
 
@@ -113,26 +115,28 @@ class CryptoChart(BasePanel):
         price = data[-1, 3]
         min_p, max_p = data[:, 2].min(), data[:, 1].max()
         buffer = (max_p - min_p) * 0.2 if max_p != min_p else max_p * 0.02
-        ymin = min(min_p - buffer, price - buffer*1.5)
-        ymax = max(max_p + buffer, price + buffer*1.5)
+        ymin = min(min_p - buffer, price - buffer * 1.5)
+        ymax = max(max_p + buffer, price + buffer * 1.5)
         self.ax.set_ylim(ymin, ymax)
         self.ax.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
 
         for i, (o, h, l, c) in enumerate(data):
             color = GREEN if c >= o else RED
             candle_height = max(abs(c - o), (h - l) * MIN_CANDLE_RATIO)
-            if candle_height < THRESHOLD*(ymax-ymin)/100:
-                candle_height = THRESHOLD*(ymax-ymin)/100
-            y_bottom = min(o, c) if abs(c - o) >= (h - l) * MIN_CANDLE_RATIO else min(o, c) - (candle_height - abs(c - o))/2
+            if candle_height < THRESHOLD * (ymax - ymin) / 100:
+                candle_height = THRESHOLD * (ymax - ymin) / 100
+            y_bottom = min(o, c)
             self.ax.plot([i, i], [l, h], color=color, linewidth=1)
-            rect = patches.Rectangle((i - width/2, y_bottom), width, candle_height, facecolor=color)
-            self.ax.add_patch(rect)
+            self.ax.add_patch(
+                patches.Rectangle((i - width / 2, y_bottom), width, candle_height, facecolor=color)
+            )
 
-        # Current price line
         line_color = GREEN if self.prev_price is None or price >= self.prev_price else RED
         self.ax.axhline(price, color=line_color, linestyle="--", linewidth=1)
+
+        labeled_price = f"{price:,.5f}" if price < 1 else f"{price:,.2f}"
         self.ax.text(
-            1.01, price, f"{price:,.2f}",
+            1.01, price, labeled_price,
             transform=self.ax.get_yaxis_transform(),
             color=line_color,
             va="center", ha="left",
@@ -140,36 +144,49 @@ class CryptoChart(BasePanel):
             bbox=dict(facecolor=DARK_BG, alpha=0.9)
         )
 
-        # Price axis formatting on right
-        self.ax.set_facecolor(DARK_BG)
-        self.ax.set_ylabel("Price", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
-                                              "weight": "bold", "color": GRAY})
-        self.ax.grid(True, color="gray", linestyle="--", linewidth=0.3)
+        self.ax.set_ylabel(
+            "Price",
+            fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                      "weight": "bold", "color": GRAY}
+        )
         self.ax.tick_params(axis='y', colors=GRAY)
+        self.ax.grid(True, color="gray", linestyle="--", linewidth=0.3)
         self.ax.get_xaxis().set_visible(False)
 
         # Volume bars
-        self.ax2.bar(range(len(vol_data)), vol_data, color=[GREEN if c >= o else RED for o, h, l, c in data])
-        tick_spacing = max(1, len(ts)//6)
+        self.ax2.bar(
+            range(len(vol_data)),
+            vol_data,
+            color=[GREEN if c >= o else RED for o, h, l, c in data]
+        )
+
+        self.ax2.yaxis.tick_right()
+        self.ax2.yaxis.set_label_position("left")
+        self.ax2.yaxis.set_major_formatter(FuncFormatter(self.volume_formatter))
+        self.ax2.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
+
+        tick_spacing = max(1, len(ts) // 6)
         tick_labels = [t.strftime("%H:%M") for t in ts]
         self.ax2.set_xticks(np.arange(0, len(tick_labels), tick_spacing))
-        self.ax2.set_xticklabels(tick_labels[::tick_spacing], rotation=30, ha="right",
-                                 fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
-                                           "weight": "bold", "color": GRAY})
-        self.ax2.yaxis.set_major_formatter(FuncFormatter(lambda x, pos: self.volume_formatter(x, pos)))
-        self.ax2.yaxis.set_major_locator(MaxNLocator(nbins=6, prune='both'))
-        self.ax2.set_facecolor(DARK_BG)
-        self.ax2.set_ylabel("Volume", fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
-                                                "weight": "bold", "color": GRAY})
+        self.ax2.set_xticklabels(
+            tick_labels[::tick_spacing],
+            rotation=30,
+            ha="right",
+            fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                      "weight": "bold", "color": GRAY}
+        )
+
+        self.ax2.set_ylabel(
+            "Volume",
+            fontdict={"family": "Courier New", "size": LABEL_FONT_SIZE,
+                      "weight": "bold", "color": GRAY}
+        )
         self.ax2.tick_params(axis='y', colors=GRAY)
         self.ax2.tick_params(axis='x', colors=GRAY)
         self.ax2.grid(True, color="gray", linestyle="--", linewidth=0.3)
 
-        try:
-            self.fig.tight_layout(pad=0.3)
-            self.fig2.tight_layout(pad=0.3)
-        except:
-            pass
+        self.fig.tight_layout(pad=0.3)
+        self.fig2.tight_layout(pad=0.3)
 
         self.canvas.draw()
         self.canvas2.draw()
