@@ -5,7 +5,7 @@ A real-time cryptocurrency dashboard built with Python and Tkinter. Displays liv
 ## Project Structure
 
 ```bash
-crypto_dashboard/
+cryptocurrency/
 ├── lib/                # Panels and utilities
 │ ├── **init**.py
 │ ├── ticker.py         # CryptoTicker panel
