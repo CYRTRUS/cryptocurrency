@@ -6,10 +6,6 @@ A real-time cryptocurrency dashboard built with Python and Tkinter. Displays liv
 
 ```bash
 crypto_dashboard/
-├── main.py             # Entry point, main dashboard
-├── media/              # Entry point, main dashboard
-│ ├── ui_design_01.png  # Figma UI Design
-│ └── demonstrate.mp4   # Demonstrate video
 ├── lib/                # Panels and utilities
 │ ├── **init**.py
 │ ├── ticker.py         # CryptoTicker panel
@@ -20,6 +16,9 @@ crypto_dashboard/
 │ ├── debug.py          # Logging utility
 │ ├── base_panel.py     # Base panel for Tkinter panels
 │ └── base.py           # Base panel for WebSocket panels
+└── media/              # Entry point, main dashboard
+│ └── ui_design_01.png  # Figma UI Design
+├── main.py             # Entry point, main dashboard
 ├── requirements.txt    # All required dependencies
 └── README.md           # This file
 ```
@@ -84,10 +83,7 @@ python main.py
 
 ## Demonstrate Video
 
-<video width="800" controls>
-  <source src="media/demonstrate.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[![Crypto Dashboard Demo](https://img.youtube.com/vi/myqGtr6JDUs/0.jpg)](https://youtu.be/myqGtr6JDUs)
 
 ## Project Requirements & Grading Rubric
 
